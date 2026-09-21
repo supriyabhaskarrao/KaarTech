@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Icebreaker Name Game</title>
+<style>
+  :root{
+    --bg:#0f1220; --panel:#171b2e; --panel2:#1f243d; --text:#eef0f7; --muted:#9aa1b9;
+    --accent:#7c9cff; --good:#3ddc97; --bad:#ff6b6b; --warn:#ffb545; --border:#2a3050;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  header h1{font-size:18px;margin:0;}
+  nav{display:flex;gap:8px;}
+  nav button{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:14px;}
+  nav button.active{background:var(--accent);color:#0f1220;font-weight:600;border-color:var(--accent);}
+  main{max-width:1100px;margin:0 auto;padding:20px;}
+  .tab{display:none;}
+  .tab.active{display:block;}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:16px;}
+  h2{margin-top:0;font-size:16px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+  table{width:100%;border-collapse:collapse;}
+  th,td{padding:8px 6px;border-bottom:1px solid var(--border);text-align:left;font-size:14px;}
+  input[type=text], textarea, select{
+    background:var(--panel2);border:1px solid var(--border);color:var(--text);
+    padding:8px 10px;border-radius:8px;font-size:14px;width:100%;
+  }
+  textarea{min-height:80px;font-family:monospace;}
+  .row{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;}
+  .row > *{flex:1;min-width:120px;}
+  button.btn{background:var(--accent);color:#0f1220;border:none;padding:9px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;}
+  button.btn.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--border);}
+  button.btn.danger{background:var(--bad);color:#1a0505;}
+  button.btn.good{background:var(--good);color:#052815;}
+  button.btn:disabled{opacity:.4;cursor:not-allowed;}
+  .pill{display:inline-block;background:var(--panel2);border:1px solid var(--border);border-radius:999px;padding:3px 10px;font-size:12px;margin:2px;}
+  .pill button{background:none;border:none;color:var(--bad);cursor:pointer;margin-left:6px;font-weight:bold;}
+  .grid2{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;}
+  @media (max-width:800px){.grid2{grid-template-columns:1fr;}}
+  .clue{font-size:26px;font-weight:700;margin:10px 0 4px;}
+  .clue-sub{color:var(--muted);font-size:14px;margin-bottom:14px;}
+  .name-reveal{font-size:22px;color:var(--good);font-weight:700;}
+  .transcript-box{background:var(--panel2);border:1px dashed var(--border);border-radius:8px;padding:14px;min-height:50px;font-size:16px;margin:10px 0;}
+  .mic-btn{width:100%;padding:16px;font-size:16px;border-radius:10px;}
+  .mic-btn.listening{background:var(--bad);animation:pulse 1.2s infinite;}
+  @keyframes pulse{0%{opacity:1;}50%{opacity:.6;}100%{opacity:1;}}
+  .field-result{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;margin-bottom:6px;background:var(--panel2);}
+  .field-result.correct{border-left:4px solid var(--good);}
+  .field-result.incorrect{border-left:4px solid var(--bad);}
+  .field-result .tag{font-size:12px;color:var(--muted);}
+  .badge{font-weight:700;}
+  .badge.correct{color:var(--good);}
+  .badge.incorrect{color:var(--bad);}
+  .leaderboard-item{display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--border);}
+  .leaderboard-item:last-child{border-bottom:none;}
+  .muted{color:var(--muted);font-size:13px;}
+  .queue-progress{font-size:13px;color:var(--muted);margin-bottom:8px;}
+  .flex-between{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+  select#awardTeam{max-width:220px;}
+  .warn-box{background:#3a2e0d;border:1px solid var(--warn);color:var(--warn);padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:12px;}
+  .log-row{font-size:12px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎤 Icebreaker Name Game</h1>
+  <nav>
+    <button data-tab="setup" class="active">Setup</button>
+    <button data-tab="play">Play</button>
+    <button data-tab="results">Results</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- SETUP TAB -->
+  <div class="tab active" id="tab-setup">
+    <div class="grid2">
+      <div>
+        <div class="card">
+          <h2>Participants (the answer key)</h2>
+          <div class="row">
+            <input type="text" id="pName" placeholder="Name">
+            <input type="text" id="pDesig" placeholder="Designation">
+            <input type="text" id="pRegion" placeholder="Region">
+            <button class="btn" id="addPerson" style="flex:0 0 auto;">Add</button>
+          </div>
+          <table id="rosterTable">
+            <thead><tr><th>Name</th><th>Designation</th><th>Region</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <h2>Bulk import (paste CSV: Name, Designation, Region — one per line)</h2>
+          <textarea id="csvInput" placeholder="Priya Sharma, Regional Manager, Chennai&#10;Arjun Mehta, Solutions Architect, Bengaluru"></textarea>
+          <div class="row" style="margin-top:8px;">
+            <button class="btn secondary" id="importCsv">Import rows</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h2>Teams / Players (the guessers)</h2>
+          <div class="row">
+            <input type="text" id="teamName" placeholder="Team or player name">
+            <button class="btn" id="addTeam" style="flex:0 0 auto;">Add</button>
+          </div>
+          <div id="teamPills"></div>
+        </div>
+
+        <div class="card">
+          <h2>Game controls</h2>
+          <p class="muted">Starting the game shuffles all participants into a random guessing queue. Existing scores are kept unless you reset.</p>
+          <div class="row">
+            <button class="btn good" id="startGame">Start / Restart Queue</button>
+            <button class="btn danger" id="resetAll">Reset everything</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLAY TAB -->
+  <div class="tab" id="tab-play">
+    <div class="grid2">
+      <div>
+        <div class="card">
+          <div class="queue-progress" id="queueProgress">No round in progress. Go to Setup and click "Start / Restart Queue".</div>
+          <div class="clue" id="clueText">—</div>
+          <div class="clue-sub" id="clueSub"></div>
+          <div id="nameReveal"></div>
+
+          <button class="btn mic-btn" id="micBtn">🎤 Start Listening for a guess</button>
+          <div class="transcript-box" id="transcriptBox">Transcript will appear here…</div>
+          <div class="row">
+            <input type="text" id="manualTranscript" placeholder="…or type the guess here if voice isn't available">
+            <button class="btn secondary" id="manualCheck" style="flex:0 0 auto;">Check typed guess</button>
+          </div>
+
+          <div id="matchResults"></div>
+
+          <div class="card" id="awardCard" style="display:none;margin-top:12px;">
+            <div class="flex-between">
+              <div>
+                <label class="muted">Award points to:</label>
+                <select id="awardTeam"></select>
+              </div>
+              <div class="row" style="flex:0 0 auto;">
+                <button class="btn good" id="awardPoints">Award points shown above</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:14px;">
+            <button class="btn secondary" id="revealBtn">Reveal name</button>
+            <button class="btn" id="nextBtn">Next person →</button>
+          </div>
+          <div id="micWarning"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h2>Live Leaderboard</h2>
+          <div id="liveLeaderboard"><p class="muted">No teams yet.</p></div>
+        </div>
+        <div class="card">
+          <h2>Recent attempts</h2>
+          <div id="recentLog"><p class="muted">Nothing yet.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULTS TAB -->
+  <div class="tab" id="tab-results">
+    <div class="card">
+      <div class="flex-between">
+        <h2 style="margin:0;">Final Leaderboard</h2>
+        <button class="btn secondary" id="exportCsv">Export CSV</button>
+      </div>
+      <div id="finalLeaderboard"></div>
+    </div>
+    <div class="card">
+      <h2>Full history</h2>
+      <table id="historyTable">
+        <thead><tr><th>Person</th><th>Team</th><th>Transcript</th><th>Name</th><th>Designation</th><th>Region</th><th>Points</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  const STORAGE_KEY = "icebreaker_game_state_v1";
+
+  let state = loadState() || {
+    roster: [],
+    teams: [],
+    queue: [],
+    queueIndex: -1,
+    history: [],
+    started: false
+  };
+
+  function saveState(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+  function loadState(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    }catch(e){ return null; }
+  }
+  function uid(){ return Math.random().toString(36).slice(2,10); }
+
+  // ---------- TABS ----------
+  const navButtons = document.querySelectorAll("nav button");
+  navButtons.forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      navButtons.forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+      document.getElementById("tab-"+btn.dataset.tab).classList.add("active");
+      if(btn.dataset.tab === "results") renderResults();
+      if(btn.dataset.tab === "play") renderPlay();
+    });
+  });
+
+  // ---------- SETUP: ROSTER ----------
+  const rosterTbody = document.querySelector("#rosterTable tbody");
+  function renderRoster(){
+    rosterTbody.innerHTML = "";
+    state.roster.forEach(p=>{
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.designation)}</td><td>${escapeHtml(p.region)}</td>
+        <td><button class="btn secondary" data-id="${p.id}" style="padding:4px 10px;font-size:12px;">Remove</button></td>`;
+      tr.querySelector("button").addEventListener("click", ()=>{
+        state.roster = state.roster.filter(x=>x.id!==p.id);
+        saveState(); renderRoster();
+      });
+      rosterTbody.appendChild(tr);
+    });
+  }
+  function escapeHtml(s){
+    return String(s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+
+  document.getElementById("addPerson").addEventListener("click", ()=>{
+    const name = document.getElementById("pName").value.trim();
+    const desig = document.getElementById("pDesig").value.trim();
+    const region = document.getElementById("pRegion").value.trim();
+    if(!name) return alert("Name is required.");
+    state.roster.push({id:uid(), name, designation:desig, region});
+    saveState(); renderRoster();
+    document.getElementById("pName").value = "";
+    document.getElementById("pDesig").value = "";
+    document.getElementById("pRegion").value = "";
+    document.getElementById("pName").focus();
+  });
+
+  document.getElementById("importCsv").addEventListener("click", ()=>{
+    const raw = document.getElementById("csvInput").value.trim();
+    if(!raw) return;
+    const lines = raw.split(/\r?\n/).filter(l=>l.trim().length);
+    let added = 0;
+    lines.forEach(line=>{
+      const parts = line.split(",").map(s=>s.trim());
+      if(parts[0]){
+        state.roster.push({id:uid(), name:parts[0], designation:parts[1]||"", region:parts[2]||""});
+        added++;
+      }
+    });
+    saveState(); renderRoster();
+    document.getElementById("csvInput").value = "";
+    alert(`Imported ${added} participant(s).`);
+  });
+
+  // ---------- SETUP: TEAMS ----------
+  const teamPillsEl = document.getElementById("teamPills");
+  function renderTeams(){
+    teamPillsEl.innerHTML = "";
+    state.teams.forEach(t=>{
+      const span = document.createElement("span");
+      span.className = "pill";
+      span.innerHTML = `${escapeHtml(t.name)} (${t.score} pts) <button data-id="${t.id}">✕</button>`;
+      span.querySelector("button").addEventListener("click", ()=>{
+        state.teams = state.teams.filter(x=>x.id!==t.id);
+        saveState(); renderTeams(); renderLeaderboards();
+      });
+      teamPillsEl.appendChild(span);
+    });
+    if(state.teams.length===0){
+      teamPillsEl.innerHTML = '<p class="muted">No teams yet — add at least one.</p>';
+    }
+  }
+  document.getElementById("addTeam").addEventListener("click", ()=>{
+    const name = document.getElementById("teamName").value.trim();
+    if(!name) return;
+    state.teams.push({id:uid(), name, score:0});
+    saveState(); renderTeams(); renderLeaderboards();
+    document.getElementById("teamName").value = "";
+    document.getElementById("teamName").focus();
+  });
+
+  // ---------- GAME CONTROL ----------
+  function shuffle(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i],a[j]]=[a[j],a[i]];
+    }
+    return a;
+  }
+
+  document.getElementById("startGame").addEventListener("click", ()=>{
+    if(state.roster.length===0) return alert("Add at least one participant first.");
+    if(state.teams.length===0) return alert("Add at least one team/player first.");
+    state.queue = shuffle(state.roster.map(p=>p.id));
+    state.queueIndex = 0;
+    state.started = true;
+    saveState();
+    document.querySelector('nav button[data-tab="play"]').click();
+  });
+
+  document.getElementById("resetAll").addEventListener("click", ()=>{
+    if(!confirm("This clears participants, teams, scores and history. Continue?")) return;
+    state = {roster:[], teams:[], queue:[], queueIndex:-1, history:[], started:false};
+    saveState(); renderAll();
+  });
+
+  // ---------- PLAY ----------
+  let recognition = null;
+  let recognizing = false;
+  let currentTranscript = "";
+  let currentMatch = null; // {personId, results:[{field, correct, guessedField}], points}
+
+  function currentPerson(){
+    if(state.queueIndex<0 || state.queueIndex>=state.queue.length) return null;
+    const id = state.queue[state.queueIndex];
+    return state.roster.find(p=>p.id===id) || null;
+  }
+
+  function renderPlay(){
+    const progressEl = document.getElementById("queueProgress");
+    const clueText = document.getElementById("clueText");
+    const clueSub = document.getElementById("clueSub");
+    const nameReveal = document.getElementById("nameReveal");
+    nameReveal.innerHTML = "";
+    document.getElementById("matchResults").innerHTML = "";
+    document.getElementById("awardCard").style.display = "none";
+    document.getElementById("transcriptBox").textContent = "Transcript will appear here…";
+    document.getElementById("manualTranscript").value = "";
+
+    const awardTeamSel = document.getElementById("awardTeam");
+    awardTeamSel.innerHTML = state.teams.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join("");
+
+    if(!state.started || state.queue.length===0){
+      progressEl.textContent = 'No round in progress. Go to Setup and click "Start / Restart Queue".';
+      clueText.textContent = "—";
+      clueSub.textContent = "";
+      document.getElementById("micBtn").disabled = true;
+      document.getElementById("nextBtn").disabled = true;
+      document.getElementById("revealBtn").disabled = true;
+      renderLeaderboards();
+      return;
+    }
+    document.getElementById("micBtn").disabled = false;
+    document.getElementById("nextBtn").disabled = false;
+    document.getElementById("revealBtn").disabled = false;
+
+    if(state.queueIndex >= state.queue.length){
+      progressEl.textContent = "Round complete! Check the Results tab.";
+      clueText.textContent = "🎉 All participants guessed!";
+      clueSub.textContent = "";
+      document.getElementById("micBtn").disabled = true;
+      document.getElementById("nextBtn").disabled = true;
+      document.getElementById("revealBtn").disabled = true;
+      renderLeaderboards();
+      return;
+    }
+
+    const p = currentPerson();
+    progressEl.textContent = `Person ${state.queueIndex+1} of ${state.queue.length}`;
+    clueText.textContent = p.designation || "(no designation given)";
+    clueSub.textContent = p.region ? `Region: ${p.region}` : "";
+    renderLeaderboards();
+    renderRecentLog();
+  }
+
+  document.getElementById("revealBtn").addEventListener("click", ()=>{
+    const p = currentPerson();
+    if(!p) return;
+    document.getElementById("nameReveal").innerHTML = `<div class="name-reveal">👤 ${escapeHtml(p.name)}</div>`;
+  });
+
+  document.getElementById("nextBtn").addEventListener("click", ()=>{
+    state.queueIndex++;
+    currentMatch = null;
+    saveState();
+    renderPlay();
+  });
+
+  // ---------- FUZZY MATCH ----------
+  function normalize(s){
+    return String(s||"").toLowerCase().replace(/[^a-z0-9\s]/g,"").replace(/\s+/g," ").trim();
+  }
+  function levenshtein(a,b){
+    const m=a.length,n=b.length;
+    if(m===0) return n; if(n===0) return m;
+    const dp = Array.from({length:m+1},()=>new Array(n+1).fill(0));
+    for(let i=0;i<=m;i++) dp[i][0]=i;
+    for(let j=0;j<=n;j++) dp[0][j]=j;
+    for(let i=1;i<=m;i++){
+      for(let j=1;j<=n;j++){
+        const cost = a[i-1]===b[j-1] ? 0 : 1;
+        dp[i][j] = Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1]+cost);
+      }
+    }
+    return dp[m][n];
+  }
+  function similarity(a,b){
+    a=normalize(a); b=normalize(b);
+    if(!a && !b) return 1;
+    if(!a || !b) return 0;
+    const dist = levenshtein(a,b);
+    return 1 - dist/Math.max(a.length,b.length);
+  }
+  // Does fieldValue appear (fuzzily) inside the transcript?
+  function fieldMatchesTranscript(fieldValue, transcript){
+    const fv = normalize(fieldValue);
+    if(!fv) return {matched:false, score:0};
+    const tr = normalize(transcript);
+    if(!tr) return {matched:false, score:0};
+
+    // whole-phrase substring / close similarity check
+    if(tr.includes(fv)) return {matched:true, score:1};
+    const wholeSim = similarity(fv, tr.length<=fv.length+6 ? tr : fv); // guard
+
+    const fvTokens = fv.split(" ").filter(t=>t.length>1);
+    const trTokens = tr.split(" ").filter(t=>t.length>1);
+    if(fvTokens.length===0) return {matched:false, score:0};
+
+    let matchedTokens = 0;
+    fvTokens.forEach(ft=>{
+      const best = trTokens.reduce((acc,tt)=>Math.max(acc, similarity(ft,tt)), 0);
+      if(best >= 0.72) matchedTokens++;
+    });
+    const frac = matchedTokens / fvTokens.length;
+    const threshold = fvTokens.length === 1 ? 0.99 : 0.6; // single-word fields need full match
+    return {matched: frac >= threshold, score: frac};
+  }
+
+  function evaluateGuess(transcript, person){
+    const fields = [
+      {key:"name", label:"Name", value:person.name},
+      {key:"designation", label:"Designation", value:person.designation},
+      {key:"region", label:"Region", value:person.region}
+    ].filter(f=>f.value && f.value.trim().length);
+
+    const results = fields.map(f=>{
+      const r = fieldMatchesTranscript(f.value, transcript);
+      return {field:f.label, value:f.value, correct:r.matched, score:r.score};
+    });
+    const points = results.filter(r=>r.correct).length;
+    return {results, points};
+  }
+
+  function renderMatchResults(transcript){
+    const p = currentPerson();
+    if(!p) return;
+    const evalResult = evaluateGuess(transcript, p);
+    currentMatch = {personId:p.id, results:evalResult.results, points:evalResult.points, transcript};
+
+    const el = document.getElementById("matchResults");
+    el.innerHTML = evalResult.results.map(r=>`
+      <div class="field-result ${r.correct?'correct':'incorrect'}">
+        <div><strong>${escapeHtml(r.field)}</strong> <span class="tag">(answer: ${escapeHtml(r.value)})</span></div>
+        <div class="badge ${r.correct?'correct':'incorrect'}">${r.correct? '✓ correct':'✗ not matched'}</div>
+      </div>
+    `).join("") + `<p class="muted">Total points for this guess: <strong>${evalResult.points}</strong> (edit isn't automatic if speech recognition mis-heard something — you can always override by typing the guess instead.)</p>`;
+
+    document.getElementById("awardCard").style.display = state.teams.length ? "block" : "none";
+  }
+
+  document.getElementById("manualCheck").addEventListener("click", ()=>{
+    const txt = document.getElementById("manualTranscript").value.trim();
+    if(!txt) return;
+    document.getElementById("transcriptBox").textContent = txt;
+    renderMatchResults(txt);
+  });
+
+  document.getElementById("awardPoints").addEventListener("click", ()=>{
+    if(!currentMatch){ return alert("No evaluated guess yet."); }
+    const teamId = document.getElementById("awardTeam").value;
+    const team = state.teams.find(t=>t.id===teamId);
+    if(!team) return;
+    team.score += currentMatch.points;
+    const p = state.roster.find(x=>x.id===currentMatch.personId);
+    state.history.push({
+      personName: p ? p.name : "?",
+      teamName: team.name,
+      transcript: currentMatch.transcript,
+      results: currentMatch.results,
+      points: currentMatch.points,
+      timestamp: new Date().toISOString()
+    });
+    saveState();
+    renderTeams();
+    renderLeaderboards();
+    renderRecentLog();
+    currentMatch = null;
+    document.getElementById("matchResults").innerHTML = '<p class="muted">Points awarded. Ready for the next guess.</p>';
+    document.getElementById("awardCard").style.display = "none";
+  });
+
+  // ---------- SPEECH RECOGNITION ----------
+  const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const micBtn = document.getElementById("micBtn");
+  const micWarning = document.getElementById("micWarning");
+
+  if(!SpeechRecognitionCtor){
+    micWarning.innerHTML = `<div class="warn-box">Voice recognition isn't supported in this browser (try Chrome or Edge). You can still type guesses manually below.</div>`;
+    micBtn.disabled = true;
+  } else {
+    recognition = new SpeechRecognitionCtor();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    recognition.onstart = ()=>{
+      recognizing = true;
+      micBtn.classList.add("listening");
+      micBtn.textContent = "🔴 Listening… (click to stop)";
+    };
+    recognition.onend = ()=>{
+      recognizing = false;
+      micBtn.classList.remove("listening");
+      micBtn.textContent = "🎤 Start Listening for a guess";
+    };
+    recognition.onerror = (e)=>{
+      micWarning.innerHTML = `<div class="warn-box">Mic error: ${escapeHtml(e.error)}. You can type the guess instead.</div>`;
+    };
+    recognition.onresult = (event)=>{
+      let finalTranscript = "";
+      let interim = "";
+      for(let i=event.resultIndex;i<event.results.length;i++){
+        const t = event.results[i][0].transcript;
+        if(event.results[i].isFinal) finalTranscript += t;
+        else interim += t;
+      }
+      currentTranscript = (finalTranscript || interim).trim();
+      document.getElementById("transcriptBox").textContent = currentTranscript || "…listening";
+      if(finalTranscript){
+        renderMatchResults(finalTranscript.trim());
+      }
+    };
+
+    micBtn.addEventListener("click", ()=>{
+      if(recognizing){
+        recognition.stop();
+      } else {
+        micWarning.innerHTML = "";
+        currentTranscript = "";
+        document.getElementById("transcriptBox").textContent = "…listening";
+        try{ recognition.start(); }
+        catch(e){ /* already started */ }
+      }
+    });
+  }
+
+  // ---------- LEADERBOARDS ----------
+  function renderLeaderboards(){
+    const sorted = state.teams.slice().sort((a,b)=>b.score-a.score);
+    const liveEl = document.getElementById("liveLeaderboard");
+    if(sorted.length===0){
+      liveEl.innerHTML = '<p class="muted">No teams yet.</p>';
+    } else {
+      liveEl.innerHTML = sorted.map((t,i)=>`
+        <div class="leaderboard-item"><span>${i===0?'🏆 ':''}${escapeHtml(t.name)}</span><strong>${t.score} pts</strong></div>
+      `).join("");
+    }
+  }
+
+  function renderRecentLog(){
+    const el = document.getElementById("recentLog");
+    const recent = state.history.slice(-6).reverse();
+    if(recent.length===0){
+      el.innerHTML = '<p class="muted">Nothing yet.</p>';
+      return;
+    }
+    el.innerHTML = recent.map(h=>`
+      <div class="log-row muted" style="margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:6px;">
+        <strong>${escapeHtml(h.teamName)}</strong> guessed for <strong>${escapeHtml(h.personName)}</strong> — +${h.points} pts<br>
+        <em>"${escapeHtml(h.transcript)}"</em>
+      </div>
+    `).join("");
+  }
+
+  // ---------- RESULTS ----------
+  function renderResults(){
+    const sorted = state.teams.slice().sort((a,b)=>b.score-a.score);
+    const el = document.getElementById("finalLeaderboard");
+    if(sorted.length===0){
+      el.innerHTML = '<p class="muted">No teams yet.</p>';
+    } else {
+      el.innerHTML = sorted.map((t,i)=>`
+        <div class="leaderboard-item"><span>${i===0?'🏆 ':''}${i+1}. ${escapeHtml(t.name)}</span><strong>${t.score} pts</strong></div>
+      `).join("");
+    }
+    const tbody = document.querySelector("#historyTable tbody");
+    tbody.innerHTML = state.history.map(h=>{
+      const byField = {};
+      h.results.forEach(r=> byField[r.field]=r.correct);
+      return `<tr>
+        <td>${escapeHtml(h.personName)}</td>
+        <td>${escapeHtml(h.teamName)}</td>
+        <td>${escapeHtml(h.transcript)}</td>
+        <td>${byField["Name"]? "✓":"✗"}</td>
+        <td>${byField["Designation"]!==undefined ? (byField["Designation"]?"✓":"✗") : "—"}</td>
+        <td>${byField["Region"]!==undefined ? (byField["Region"]?"✓":"✗") : "—"}</td>
+        <td>${h.points}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  document.getElementById("exportCsv").addEventListener("click", ()=>{
+    let csv = "Person,Team,Transcript,Points\n";
+    state.history.forEach(h=>{
+      csv += `"${h.personName}","${h.teamName}","${h.transcript.replace(/"/g,'""')}",${h.points}\n`;
+    });
+    csv += "\nTeam,TotalScore\n";
+    state.teams.slice().sort((a,b)=>b.score-a.score).forEach(t=>{
+      csv += `"${t.name}",${t.score}\n`;
+    });
+    const blob = new Blob([csv], {type:"text/csv"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "icebreaker_results.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // ---------- INIT ----------
+  function renderAll(){
+    renderRoster();
+    renderTeams();
+    renderPlay();
+    renderResults();
+  }
+  renderAll();
+
+})();
+</script>
+</body>
+</html>
