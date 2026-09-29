@@ -7,7 +7,7 @@
 <style>
   :root{
     --bg:#0f1220; --panel:#171b2e; --panel2:#1f243d; --text:#eef0f7; --muted:#9aa1b9;
-    --accent:#7c9cff; --good:#3ddc97; --bad:#ff6b6b; --warn:#ffb545; --border:#2a3050;
+    --accent:#7c9cff; --good:#3ddc97; --bad:#ff6b6b; --border:#2a3050;
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
@@ -42,30 +42,26 @@
   .clue{font-size:26px;font-weight:700;margin:10px 0 4px;}
   .clue-sub{color:var(--muted);font-size:14px;margin-bottom:14px;}
   .name-reveal{font-size:22px;color:var(--good);font-weight:700;}
-  .transcript-box{background:var(--panel2);border:1px dashed var(--border);border-radius:8px;padding:14px;min-height:50px;font-size:16px;margin:10px 0;}
-  .mic-btn{width:100%;padding:16px;font-size:16px;border-radius:10px;}
-  .mic-btn.listening{background:var(--bad);animation:pulse 1.2s infinite;}
-  @keyframes pulse{0%{opacity:1;}50%{opacity:.6;}100%{opacity:1;}}
-  .field-result{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;margin-bottom:6px;background:var(--panel2);}
-  .field-result.correct{border-left:4px solid var(--good);}
-  .field-result.incorrect{border-left:4px solid var(--bad);}
-  .field-result .tag{font-size:12px;color:var(--muted);}
-  .badge{font-weight:700;}
-  .badge.correct{color:var(--good);}
-  .badge.incorrect{color:var(--bad);}
   .leaderboard-item{display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--border);}
   .leaderboard-item:last-child{border-bottom:none;}
   .muted{color:var(--muted);font-size:13px;}
   .queue-progress{font-size:13px;color:var(--muted);margin-bottom:8px;}
   .flex-between{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
   select#awardTeam{max-width:220px;}
-  .warn-box{background:#3a2e0d;border:1px solid var(--warn);color:var(--warn);padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:12px;}
   .log-row{font-size:12px;}
+  .toggle-row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:8px;margin-bottom:8px;background:var(--panel2);flex-wrap:wrap;gap:8px;}
+  .toggle-row .label{font-weight:600;}
+  .toggle-row .sub{font-size:12px;color:var(--muted);}
+  .toggle-btns{display:flex;gap:6px;}
+  .toggle-btns button{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);cursor:pointer;font-size:14px;}
+  .toggle-btns button.active.yes{background:var(--good);color:#052815;border-color:var(--good);}
+  .toggle-btns button.active.no{background:var(--bad);color:#1a0505;border-color:var(--bad);}
+  .points-preview{font-size:14px;color:var(--muted);margin:12px 0;}
 </style>
 </head>
 <body>
 <header>
-  <h1>🎤 Icebreaker Name Game</h1>
+  <h1>🎯 Icebreaker Name Game</h1>
   <nav>
     <button data-tab="setup" class="active">Setup</button>
     <button data-tab="play">Play</button>
@@ -134,32 +130,22 @@
           <div class="clue-sub" id="clueSub"></div>
           <div id="nameReveal"></div>
 
-          <button class="btn mic-btn" id="micBtn">🎤 Start Listening for a guess</button>
-          <div class="transcript-box" id="transcriptBox">Transcript will appear here…</div>
-          <div class="row">
-            <input type="text" id="manualTranscript" placeholder="…or type the guess here if voice isn't available">
-            <button class="btn secondary" id="manualCheck" style="flex:0 0 auto;">Check typed guess</button>
-          </div>
+          <p class="muted" style="margin-top:14px;">Listen to the guess out loud, then tap what they got right:</p>
+          <div id="fieldToggles"></div>
+          <div class="points-preview" id="pointsPreview"></div>
 
-          <div id="matchResults"></div>
-
-          <div class="card" id="awardCard" style="display:none;margin-top:12px;">
-            <div class="flex-between">
-              <div>
-                <label class="muted">Award points to:</label>
-                <select id="awardTeam"></select>
-              </div>
-              <div class="row" style="flex:0 0 auto;">
-                <button class="btn good" id="awardPoints">Award points shown above</button>
-              </div>
+          <div class="flex-between">
+            <div>
+              <label class="muted">Award points to:</label>
+              <select id="awardTeam"></select>
             </div>
+            <button class="btn good" id="awardPoints">Award points</button>
           </div>
 
           <div class="row" style="margin-top:14px;">
             <button class="btn secondary" id="revealBtn">Reveal name</button>
             <button class="btn" id="nextBtn">Next person →</button>
           </div>
-          <div id="micWarning"></div>
         </div>
       </div>
 
@@ -188,7 +174,7 @@
     <div class="card">
       <h2>Full history</h2>
       <table id="historyTable">
-        <thead><tr><th>Person</th><th>Team</th><th>Transcript</th><th>Name</th><th>Designation</th><th>Region</th><th>Points</th></tr></thead>
+        <thead><tr><th>Person</th><th>Team</th><th>Name</th><th>Designation</th><th>Region</th><th>Points</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -200,7 +186,7 @@
 (function(){
   "use strict";
 
-  const STORAGE_KEY = "icebreaker_game_state_v1";
+  const STORAGE_KEY = "icebreaker_game_state_v2";
 
   let state = loadState() || {
     roster: [],
@@ -221,6 +207,9 @@
     }catch(e){ return null; }
   }
   function uid(){ return Math.random().toString(36).slice(2,10); }
+  function escapeHtml(s){
+    return String(s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
 
   // ---------- TABS ----------
   const navButtons = document.querySelectorAll("nav button");
@@ -249,9 +238,6 @@
       });
       rosterTbody.appendChild(tr);
     });
-  }
-  function escapeHtml(s){
-    return String(s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   }
 
   document.getElementById("addPerson").addEventListener("click", ()=>{
@@ -337,11 +323,8 @@
     saveState(); renderAll();
   });
 
-  // ---------- PLAY ----------
-  let recognition = null;
-  let recognizing = false;
-  let currentTranscript = "";
-  let currentMatch = null; // {personId, results:[{field, correct, guessedField}], points}
+  // ---------- PLAY (host judges each field by ear — no mic, no typing) ----------
+  let currentToggles = {}; // {"Name": true/false, ...}
 
   function currentPerson(){
     if(state.queueIndex<0 || state.queueIndex>=state.queue.length) return null;
@@ -349,49 +332,84 @@
     return state.roster.find(p=>p.id===id) || null;
   }
 
+  function personFields(p){
+    return [
+      {key:"Name", value:p.name},
+      {key:"Designation", value:p.designation},
+      {key:"Region", value:p.region}
+    ].filter(f=>f.value && f.value.trim().length);
+  }
+
+  function updatePointsPreview(){
+    const pts = Object.values(currentToggles).filter(Boolean).length;
+    document.getElementById("pointsPreview").textContent = `Points if awarded now: ${pts}`;
+  }
+
+  function renderFieldToggles(){
+    const p = currentPerson();
+    const el = document.getElementById("fieldToggles");
+    currentToggles = {};
+    if(!p){ el.innerHTML = ""; document.getElementById("pointsPreview").textContent = ""; return; }
+    const fields = personFields(p);
+    el.innerHTML = fields.map(f=>`
+      <div class="toggle-row" data-field="${escapeHtml(f.key)}">
+        <div><div class="label">${escapeHtml(f.key)}</div><div class="sub">answer: ${escapeHtml(f.value)}</div></div>
+        <div class="toggle-btns">
+          <button class="yes" data-val="1">✓ Got it</button>
+          <button class="no" data-val="0">✗ Missed</button>
+        </div>
+      </div>
+    `).join("");
+    el.querySelectorAll(".toggle-row").forEach(row=>{
+      const field = row.dataset.field;
+      row.querySelectorAll("button").forEach(btn=>{
+        btn.addEventListener("click", ()=>{
+          currentToggles[field] = btn.dataset.val === "1";
+          row.querySelectorAll("button").forEach(b=>b.classList.remove("active"));
+          btn.classList.add("active");
+          updatePointsPreview();
+        });
+      });
+    });
+    updatePointsPreview();
+  }
+
   function renderPlay(){
     const progressEl = document.getElementById("queueProgress");
     const clueText = document.getElementById("clueText");
     const clueSub = document.getElementById("clueSub");
-    const nameReveal = document.getElementById("nameReveal");
-    nameReveal.innerHTML = "";
-    document.getElementById("matchResults").innerHTML = "";
-    document.getElementById("awardCard").style.display = "none";
-    document.getElementById("transcriptBox").textContent = "Transcript will appear here…";
-    document.getElementById("manualTranscript").value = "";
+    document.getElementById("nameReveal").innerHTML = "";
 
     const awardTeamSel = document.getElementById("awardTeam");
     awardTeamSel.innerHTML = state.teams.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join("");
 
-    if(!state.started || state.queue.length===0){
-      progressEl.textContent = 'No round in progress. Go to Setup and click "Start / Restart Queue".';
-      clueText.textContent = "—";
+    const noRound = !state.started || state.queue.length===0;
+    const roundDone = state.started && state.queueIndex >= state.queue.length;
+
+    if(noRound || roundDone){
+      progressEl.textContent = roundDone
+        ? "Round complete! Check the Results tab."
+        : 'No round in progress. Go to Setup and click "Start / Restart Queue".';
+      clueText.textContent = roundDone ? "🎉 All participants guessed!" : "—";
       clueSub.textContent = "";
-      document.getElementById("micBtn").disabled = true;
+      document.getElementById("fieldToggles").innerHTML = "";
+      document.getElementById("pointsPreview").textContent = "";
       document.getElementById("nextBtn").disabled = true;
       document.getElementById("revealBtn").disabled = true;
+      document.getElementById("awardPoints").disabled = true;
       renderLeaderboards();
       return;
     }
-    document.getElementById("micBtn").disabled = false;
+
     document.getElementById("nextBtn").disabled = false;
     document.getElementById("revealBtn").disabled = false;
-
-    if(state.queueIndex >= state.queue.length){
-      progressEl.textContent = "Round complete! Check the Results tab.";
-      clueText.textContent = "🎉 All participants guessed!";
-      clueSub.textContent = "";
-      document.getElementById("micBtn").disabled = true;
-      document.getElementById("nextBtn").disabled = true;
-      document.getElementById("revealBtn").disabled = true;
-      renderLeaderboards();
-      return;
-    }
+    document.getElementById("awardPoints").disabled = false;
 
     const p = currentPerson();
     progressEl.textContent = `Person ${state.queueIndex+1} of ${state.queue.length}`;
     clueText.textContent = p.designation || "(no designation given)";
     clueSub.textContent = p.region ? `Region: ${p.region}` : "";
+    renderFieldToggles();
     renderLeaderboards();
     renderRecentLog();
   }
@@ -404,178 +422,35 @@
 
   document.getElementById("nextBtn").addEventListener("click", ()=>{
     state.queueIndex++;
-    currentMatch = null;
     saveState();
     renderPlay();
   });
 
-  // ---------- FUZZY MATCH ----------
-  function normalize(s){
-    return String(s||"").toLowerCase().replace(/[^a-z0-9\s]/g,"").replace(/\s+/g," ").trim();
-  }
-  function levenshtein(a,b){
-    const m=a.length,n=b.length;
-    if(m===0) return n; if(n===0) return m;
-    const dp = Array.from({length:m+1},()=>new Array(n+1).fill(0));
-    for(let i=0;i<=m;i++) dp[i][0]=i;
-    for(let j=0;j<=n;j++) dp[0][j]=j;
-    for(let i=1;i<=m;i++){
-      for(let j=1;j<=n;j++){
-        const cost = a[i-1]===b[j-1] ? 0 : 1;
-        dp[i][j] = Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1]+cost);
-      }
-    }
-    return dp[m][n];
-  }
-  function similarity(a,b){
-    a=normalize(a); b=normalize(b);
-    if(!a && !b) return 1;
-    if(!a || !b) return 0;
-    const dist = levenshtein(a,b);
-    return 1 - dist/Math.max(a.length,b.length);
-  }
-  // Does fieldValue appear (fuzzily) inside the transcript?
-  function fieldMatchesTranscript(fieldValue, transcript){
-    const fv = normalize(fieldValue);
-    if(!fv) return {matched:false, score:0};
-    const tr = normalize(transcript);
-    if(!tr) return {matched:false, score:0};
-
-    // whole-phrase substring / close similarity check
-    if(tr.includes(fv)) return {matched:true, score:1};
-    const wholeSim = similarity(fv, tr.length<=fv.length+6 ? tr : fv); // guard
-
-    const fvTokens = fv.split(" ").filter(t=>t.length>1);
-    const trTokens = tr.split(" ").filter(t=>t.length>1);
-    if(fvTokens.length===0) return {matched:false, score:0};
-
-    let matchedTokens = 0;
-    fvTokens.forEach(ft=>{
-      const best = trTokens.reduce((acc,tt)=>Math.max(acc, similarity(ft,tt)), 0);
-      if(best >= 0.72) matchedTokens++;
-    });
-    const frac = matchedTokens / fvTokens.length;
-    const threshold = fvTokens.length === 1 ? 0.99 : 0.6; // single-word fields need full match
-    return {matched: frac >= threshold, score: frac};
-  }
-
-  function evaluateGuess(transcript, person){
-    const fields = [
-      {key:"name", label:"Name", value:person.name},
-      {key:"designation", label:"Designation", value:person.designation},
-      {key:"region", label:"Region", value:person.region}
-    ].filter(f=>f.value && f.value.trim().length);
-
-    const results = fields.map(f=>{
-      const r = fieldMatchesTranscript(f.value, transcript);
-      return {field:f.label, value:f.value, correct:r.matched, score:r.score};
-    });
-    const points = results.filter(r=>r.correct).length;
-    return {results, points};
-  }
-
-  function renderMatchResults(transcript){
+  document.getElementById("awardPoints").addEventListener("click", ()=>{
     const p = currentPerson();
     if(!p) return;
-    const evalResult = evaluateGuess(transcript, p);
-    currentMatch = {personId:p.id, results:evalResult.results, points:evalResult.points, transcript};
-
-    const el = document.getElementById("matchResults");
-    el.innerHTML = evalResult.results.map(r=>`
-      <div class="field-result ${r.correct?'correct':'incorrect'}">
-        <div><strong>${escapeHtml(r.field)}</strong> <span class="tag">(answer: ${escapeHtml(r.value)})</span></div>
-        <div class="badge ${r.correct?'correct':'incorrect'}">${r.correct? '✓ correct':'✗ not matched'}</div>
-      </div>
-    `).join("") + `<p class="muted">Total points for this guess: <strong>${evalResult.points}</strong> (edit isn't automatic if speech recognition mis-heard something — you can always override by typing the guess instead.)</p>`;
-
-    document.getElementById("awardCard").style.display = state.teams.length ? "block" : "none";
-  }
-
-  document.getElementById("manualCheck").addEventListener("click", ()=>{
-    const txt = document.getElementById("manualTranscript").value.trim();
-    if(!txt) return;
-    document.getElementById("transcriptBox").textContent = txt;
-    renderMatchResults(txt);
-  });
-
-  document.getElementById("awardPoints").addEventListener("click", ()=>{
-    if(!currentMatch){ return alert("No evaluated guess yet."); }
+    if(state.teams.length===0) return alert("Add a team first.");
     const teamId = document.getElementById("awardTeam").value;
     const team = state.teams.find(t=>t.id===teamId);
     if(!team) return;
-    team.score += currentMatch.points;
-    const p = state.roster.find(x=>x.id===currentMatch.personId);
+
+    const results = personFields(p).map(f=>({field:f.key, correct: !!currentToggles[f.key]}));
+    const points = results.filter(r=>r.correct).length;
+
+    team.score += points;
     state.history.push({
-      personName: p ? p.name : "?",
+      personName: p.name,
       teamName: team.name,
-      transcript: currentMatch.transcript,
-      results: currentMatch.results,
-      points: currentMatch.points,
+      results,
+      points,
       timestamp: new Date().toISOString()
     });
     saveState();
     renderTeams();
     renderLeaderboards();
     renderRecentLog();
-    currentMatch = null;
-    document.getElementById("matchResults").innerHTML = '<p class="muted">Points awarded. Ready for the next guess.</p>';
-    document.getElementById("awardCard").style.display = "none";
+    renderFieldToggles();
   });
-
-  // ---------- SPEECH RECOGNITION ----------
-  const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const micBtn = document.getElementById("micBtn");
-  const micWarning = document.getElementById("micWarning");
-
-  if(!SpeechRecognitionCtor){
-    micWarning.innerHTML = `<div class="warn-box">Voice recognition isn't supported in this browser (try Chrome or Edge). You can still type guesses manually below.</div>`;
-    micBtn.disabled = true;
-  } else {
-    recognition = new SpeechRecognitionCtor();
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-
-    recognition.onstart = ()=>{
-      recognizing = true;
-      micBtn.classList.add("listening");
-      micBtn.textContent = "🔴 Listening… (click to stop)";
-    };
-    recognition.onend = ()=>{
-      recognizing = false;
-      micBtn.classList.remove("listening");
-      micBtn.textContent = "🎤 Start Listening for a guess";
-    };
-    recognition.onerror = (e)=>{
-      micWarning.innerHTML = `<div class="warn-box">Mic error: ${escapeHtml(e.error)}. You can type the guess instead.</div>`;
-    };
-    recognition.onresult = (event)=>{
-      let finalTranscript = "";
-      let interim = "";
-      for(let i=event.resultIndex;i<event.results.length;i++){
-        const t = event.results[i][0].transcript;
-        if(event.results[i].isFinal) finalTranscript += t;
-        else interim += t;
-      }
-      currentTranscript = (finalTranscript || interim).trim();
-      document.getElementById("transcriptBox").textContent = currentTranscript || "…listening";
-      if(finalTranscript){
-        renderMatchResults(finalTranscript.trim());
-      }
-    };
-
-    micBtn.addEventListener("click", ()=>{
-      if(recognizing){
-        recognition.stop();
-      } else {
-        micWarning.innerHTML = "";
-        currentTranscript = "";
-        document.getElementById("transcriptBox").textContent = "…listening";
-        try{ recognition.start(); }
-        catch(e){ /* already started */ }
-      }
-    });
-  }
 
   // ---------- LEADERBOARDS ----------
   function renderLeaderboards(){
@@ -599,8 +474,8 @@
     }
     el.innerHTML = recent.map(h=>`
       <div class="log-row muted" style="margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:6px;">
-        <strong>${escapeHtml(h.teamName)}</strong> guessed for <strong>${escapeHtml(h.personName)}</strong> — +${h.points} pts<br>
-        <em>"${escapeHtml(h.transcript)}"</em>
+        <strong>${escapeHtml(h.teamName)}</strong> — <strong>${escapeHtml(h.personName)}</strong>: +${h.points} pts
+        (${h.results.map(r=>`${escapeHtml(r.field)} ${r.correct?'✓':'✗'}`).join(", ")})
       </div>
     `).join("");
   }
@@ -620,22 +495,22 @@
     tbody.innerHTML = state.history.map(h=>{
       const byField = {};
       h.results.forEach(r=> byField[r.field]=r.correct);
+      const cell = k => byField[k]!==undefined ? (byField[k]?"✓":"✗") : "—";
       return `<tr>
         <td>${escapeHtml(h.personName)}</td>
         <td>${escapeHtml(h.teamName)}</td>
-        <td>${escapeHtml(h.transcript)}</td>
-        <td>${byField["Name"]? "✓":"✗"}</td>
-        <td>${byField["Designation"]!==undefined ? (byField["Designation"]?"✓":"✗") : "—"}</td>
-        <td>${byField["Region"]!==undefined ? (byField["Region"]?"✓":"✗") : "—"}</td>
+        <td>${cell("Name")}</td>
+        <td>${cell("Designation")}</td>
+        <td>${cell("Region")}</td>
         <td>${h.points}</td>
       </tr>`;
     }).join("");
   }
 
   document.getElementById("exportCsv").addEventListener("click", ()=>{
-    let csv = "Person,Team,Transcript,Points\n";
+    let csv = "Person,Team,Points\n";
     state.history.forEach(h=>{
-      csv += `"${h.personName}","${h.teamName}","${h.transcript.replace(/"/g,'""')}",${h.points}\n`;
+      csv += `"${h.personName}","${h.teamName}",${h.points}\n`;
     });
     csv += "\nTeam,TotalScore\n";
     state.teams.slice().sort((a,b)=>b.score-a.score).forEach(t=>{
