@@ -96,6 +96,16 @@
             <button class="btn secondary" id="importCsv">Import rows</button>
           </div>
         </div>
+
+        <div class="card">
+          <h2>Region filter (who's in the next round)</h2>
+          <p class="muted">Uncheck a region to skip its own participants in the queue — e.g. that region's group already knows each other, so only other regions need guessing.</p>
+          <div id="regionFilterList"></div>
+          <div class="row" style="margin-top:8px;">
+            <button class="btn secondary" id="regionAll" style="flex:0 0 auto;padding:4px 10px;font-size:12px;">Select all</button>
+            <button class="btn secondary" id="regionNone" style="flex:0 0 auto;padding:4px 10px;font-size:12px;">Deselect all</button>
+          </div>
+        </div>
       </div>
 
       <div>
@@ -110,11 +120,16 @@
 
         <div class="card">
           <h2>Game controls</h2>
-          <p class="muted">Starting the game shuffles all participants into a random guessing queue. Existing scores are kept unless you reset.</p>
+          <p class="muted">Starting the game shuffles participants (per the region filter above) into a random guessing queue.</p>
           <div class="row">
             <button class="btn good" id="startGame">Start / Restart Queue</button>
+          </div>
+          <p class="muted" style="margin-top:14px;">Resetting:</p>
+          <div class="row">
+            <button class="btn secondary" id="resetScores">Reset leaderboard only</button>
             <button class="btn danger" id="resetAll">Reset everything</button>
           </div>
+          <p class="muted">"Reset leaderboard only" clears scores and history but keeps participants, teams and the region filter — safe to click without losing setup data.</p>
         </div>
       </div>
     </div>
@@ -194,8 +209,12 @@
     queue: [],
     queueIndex: -1,
     history: [],
-    started: false
+    started: false,
+    regionFilter: {},
+    queueRegions: []
   };
+  state.regionFilter = state.regionFilter || {};
+  state.queueRegions = state.queueRegions || [];
 
   function saveState(){
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -238,7 +257,43 @@
       });
       rosterTbody.appendChild(tr);
     });
+    renderRegionFilter();
   }
+
+  // ---------- SETUP: REGION FILTER ----------
+  function getRegions(){
+    const set = new Set();
+    state.roster.forEach(p=>{ if(p.region && p.region.trim()) set.add(p.region.trim()); });
+    return Array.from(set).sort();
+  }
+  function renderRegionFilter(){
+    const el = document.getElementById("regionFilterList");
+    const regions = getRegions();
+    if(regions.length===0){
+      el.innerHTML = '<p class="muted">Add participants with a region to enable filtering.</p>';
+      return;
+    }
+    el.innerHTML = regions.map(r=>{
+      const checked = state.regionFilter[r] !== false;
+      return `<label class="pill" style="cursor:pointer;">
+        <input type="checkbox" data-region="${escapeHtml(r)}" ${checked?"checked":""} style="margin-right:6px;">${escapeHtml(r)}
+      </label>`;
+    }).join("");
+    el.querySelectorAll("input[type=checkbox]").forEach(cb=>{
+      cb.addEventListener("change", ()=>{
+        state.regionFilter[cb.dataset.region] = cb.checked;
+        saveState();
+      });
+    });
+  }
+  document.getElementById("regionAll").addEventListener("click", ()=>{
+    getRegions().forEach(r=> state.regionFilter[r] = true);
+    saveState(); renderRegionFilter();
+  });
+  document.getElementById("regionNone").addEventListener("click", ()=>{
+    getRegions().forEach(r=> state.regionFilter[r] = false);
+    saveState(); renderRegionFilter();
+  });
 
   document.getElementById("addPerson").addEventListener("click", ()=>{
     const name = document.getElementById("pName").value.trim();
@@ -310,16 +365,27 @@
   document.getElementById("startGame").addEventListener("click", ()=>{
     if(state.roster.length===0) return alert("Add at least one participant first.");
     if(state.teams.length===0) return alert("Add at least one team/player first.");
-    state.queue = shuffle(state.roster.map(p=>p.id));
+    const eligible = state.roster.filter(p => !p.region || !p.region.trim() || state.regionFilter[p.region.trim()] !== false);
+    if(eligible.length===0) return alert("No participants match the current region filter.");
+    state.queue = shuffle(eligible.map(p=>p.id));
     state.queueIndex = 0;
     state.started = true;
+    state.queueRegions = getRegions().filter(r => state.regionFilter[r] !== false);
     saveState();
     document.querySelector('nav button[data-tab="play"]').click();
   });
 
+  document.getElementById("resetScores").addEventListener("click", ()=>{
+    if(!confirm("Reset all team scores and the attempt history? Participants, teams and the region filter stay.")) return;
+    state.teams.forEach(t=> t.score = 0);
+    state.history = [];
+    saveState();
+    renderTeams(); renderLeaderboards(); renderRecentLog(); renderResults();
+  });
+
   document.getElementById("resetAll").addEventListener("click", ()=>{
     if(!confirm("This clears participants, teams, scores and history. Continue?")) return;
-    state = {roster:[], teams:[], queue:[], queueIndex:-1, history:[], started:false};
+    state = {roster:[], teams:[], queue:[], queueIndex:-1, history:[], started:false, regionFilter:{}, queueRegions:[]};
     saveState(); renderAll();
   });
 
@@ -406,7 +472,8 @@
     document.getElementById("awardPoints").disabled = false;
 
     const p = currentPerson();
-    progressEl.textContent = `Person ${state.queueIndex+1} of ${state.queue.length}`;
+    const regionsNote = state.queueRegions.length ? ` — regions in play: ${state.queueRegions.map(escapeHtml).join(", ")}` : "";
+    progressEl.textContent = `Person ${state.queueIndex+1} of ${state.queue.length}${regionsNote}`;
     clueText.textContent = p.designation || "(no designation given)";
     clueSub.textContent = p.region ? `Region: ${p.region}` : "";
     renderFieldToggles();
